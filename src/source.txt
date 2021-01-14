@@ -1,4 +1,7 @@
 START{
-print((-12)*(-2));
-print((12+8)*(-7));
+int a;
+a=5;
+print(a);
+print(a+10);
+print(a-10);
 }

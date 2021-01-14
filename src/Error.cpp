@@ -15,3 +15,7 @@ void Error::Expected(std::string s, int line) {
 void Error::Unexpected(std::string s, int line) {
 	std::cout << "line " << line << ": " << "Unexpected " << '"' << s << '"' << std::endl;
 }
+
+void Error::ExistName(std::string s, int line) {
+	std::cout << "line " << line << ": " << "Existing name " << '"' << s << '"' << std::endl;
+}

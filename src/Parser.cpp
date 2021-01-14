@@ -8,6 +8,7 @@ Parser::Parser(std::string filename) {
 	line = 1;
 	set_func();
 	set_spec_words();
+	set_types();
 }
 
 Parser::~Parser() {
@@ -43,9 +44,16 @@ void Parser::expression(char sign) {
 	if (is_error) {
 		return;
 	}
+	var_dif();
 	term(sign);
-	while (cur_lex.first == "lexPLUS" || cur_lex.first == "lexMINUS") {
+	while (cur_lex.first == "lexPLUS" || cur_lex.first == "lexMINUS" || cur_lex.first=="lexEQUAL") {
 		std::string q = "";
+		if (cur_lex.first == "lexEQUAL") {
+			cur_lex = lex->get_lex(line);
+			expression('p');
+			cur_exp.push_back("=");
+			continue;
+		}
 		if (cur_lex.first == "lexPLUS" && sign=='p' || cur_lex.first == "lexMINUS" && sign == 'm') {
 			q = "+";
 		}
@@ -105,6 +113,10 @@ void Parser::mult(char sign) {
 		cur_lex = lex->get_lex(line);
 		expression(sign);
 		cur_exp.push_back(q);
+		cur_lex = lex->get_lex(line);
+	}
+	else if (vars.find(cur_lex.second) != vars.end()) {
+		cur_exp.push_back(cur_lex.second);
 		cur_lex = lex->get_lex(line);
 	}
 	else {
@@ -171,24 +183,110 @@ void Parser::solve_expression() {
 			ptr++;
 			stack[ptr] = cur_exp[i];
 		}
+		else if (vars.find(cur_exp[i]) != vars.end()) {
+			ptr++;
+			stack[ptr] = cur_exp[i];
+		}
 		else if (cur_exp[i] == "+") {
-			stack[ptr - 1] = from_int_to_string(from_str_to_int(stack[ptr]) + from_str_to_int(stack[ptr - 1]));
+			std::string a = "";
+			std::string b = "";
+			if (vars.find(stack[ptr - 1]) != vars.end()) {
+				a = vars[stack[ptr - 1]].second;
+			}
+			else {
+				a = stack[ptr - 1];
+			}
+			if (vars.find(stack[ptr]) != vars.end()) {
+				b = vars[stack[ptr]].second;
+			}
+			else {
+				b = stack[ptr];
+			}
+			stack[ptr - 1] = from_int_to_string(from_str_to_int(b) + from_str_to_int(a));
 			ptr--;
 		}
 		else if (cur_exp[i] == "-") {
-			stack[ptr - 1] = from_int_to_string(from_str_to_int(stack[ptr - 1]) - from_str_to_int(stack[ptr]));
+			std::string a = "";
+			std::string b = "";
+			if (vars.find(stack[ptr - 1]) != vars.end()) {
+				a = vars[stack[ptr - 1]].second;
+			}
+			else {
+				a = stack[ptr - 1];
+			}
+			if (vars.find(stack[ptr]) != vars.end()) {
+				b = vars[stack[ptr]].second;
+			}
+			else {
+				b = stack[ptr];
+			}
+			stack[ptr - 1] = from_int_to_string(from_str_to_int(a) - from_str_to_int(b));
 			ptr--;
 		}
 		else if (cur_exp[i] == "*") {
-			stack[ptr - 1] = from_int_to_string(from_str_to_int(stack[ptr - 1]) * from_str_to_int(stack[ptr]));
+			std::string a = "";
+			std::string b = "";
+			if (vars.find(stack[ptr - 1]) != vars.end()) {
+				a = vars[stack[ptr - 1]].second;
+			}
+			else {
+				a = stack[ptr - 1];
+			}
+			if (vars.find(stack[ptr]) != vars.end()) {
+				b = vars[stack[ptr]].second;
+			}
+			else {
+				b = stack[ptr];
+			}
+			stack[ptr - 1] = from_int_to_string(from_str_to_int(a) * from_str_to_int(b));
 			ptr--;
 		}
 		else if (cur_exp[i] == "/") {
-			stack[ptr - 1] = from_int_to_string(from_str_to_int(stack[ptr - 1]) / from_str_to_int(stack[ptr]));
+			std::string a = "";
+			std::string b = "";
+			if (vars.find(stack[ptr - 1]) != vars.end()) {
+				a = vars[stack[ptr - 1]].second;
+			}
+			else {
+				a = stack[ptr - 1];
+			}
+			if (vars.find(stack[ptr]) != vars.end()) {
+				b = vars[stack[ptr]].second;
+			}
+			else {
+				b = stack[ptr];
+			}
+			stack[ptr - 1] = from_int_to_string(from_str_to_int(a) / from_str_to_int(b));
 			ptr--;
 		}
+		else if(cur_exp[i]=="="){
+			if (vars.find(stack[ptr - 1]) == vars.end()) {
+				is_error = true;
+				err->Unexpected(stack[ptr - 1], line);
+			}
+			else {
+				std::string b = "";
+				if (vars.find(stack[ptr]) != vars.end()) {
+					b = vars[stack[ptr]].second;
+				}
+				else {
+					b = stack[ptr];
+				}
+				vars[stack[ptr - 1]].second = b;
+				ptr -= 2;
+			}
+		}
 		else if (cur_exp[i] == "lexPRINT") {
-			std::cout << stack[ptr] << std::endl;
+			if ((int)stack[ptr][stack[ptr].size()-1] >= (int)'0' && (int)stack[ptr][stack[ptr].size()-1] <= (int)'9') {
+				std::cout << stack[ptr] << std::endl;
+			}
+			else if (vars.find(stack[ptr]) != vars.end()) {
+				std::cout << vars[stack[ptr]].second << std::endl;
+			}
+			else {
+				is_error = true;
+				err->Unexpected(stack[ptr], line);
+			}
 			ptr--;
 		}
 	}
@@ -199,7 +297,7 @@ void Parser::solve_expression() {
 void Parser::set_func() {
 	const std::map<std::string, std::pair<std::string, int>>* tmp = lex->get_built_in_funcs();
 	for (auto i = (*tmp).begin(); i != (*tmp).end(); ++i) {
-		funcs.insert((*i).second.first);
+		funcs.insert(std::pair<std::string, std::pair<std::string, int>>((*i).second.first, std::pair<std::string, int>((*i).first,(*i).second.second)));
 	}
 }
 
@@ -207,5 +305,30 @@ void Parser::set_spec_words() {
 	const std::map<std::string, std::string>* tmp = lex->get_spec_words();
 	for (auto i = (*tmp).begin(); i != (*tmp).end(); ++i) {
 		spec_words.insert(std::pair< std::string, std::string>((*i).second, (*i).first));
+	}
+}
+
+void Parser::var_dif() {
+	if (types.find(cur_lex.first) == types.end()) {
+		return;
+	}
+	std::string s = cur_lex.first.substr(0, cur_lex.first.size() - 1);
+	cur_lex = lex->get_lex(line);
+	if (cur_lex.first != "lexNONE") {
+		is_error = true;
+		if (funcs.find(cur_lex.first) != funcs.end()) {
+			err->Unexpected(funcs[cur_lex.first].first, line);
+		}
+		else if (spec_words.find(cur_lex.first) != spec_words.end()) {
+			err->Unexpected(spec_words[cur_lex.first], line);
+		}
+	}
+	vars.insert(std::pair<std::string, pss>(cur_lex.second, pss(s, "")));
+}
+
+void Parser::set_types() {
+	const std::map<std::string, std::string>* tmp = lex->get_types();
+	for (auto i = (*tmp).begin(); i != (*tmp).end(); ++i) {
+		types.insert((*i).second);
 	}
 }

@@ -5,6 +5,7 @@ lexer::lexer(std::string file_name) {
 	file.get(cur_let);
 	spec_words = { {"START","lexSTART"} };
 	built_in_funcs = { {"print",std::pair<std::string,int>("lexPRINT",1)} };
+	types = { {"int","lexINTT"} };
 }
 
 lexer::~lexer() {
@@ -25,7 +26,7 @@ std::string lexer::name() {
 	std::string out(1, cur_let);
 	file.get(cur_let);
 	while ((int)cur_let >= (int)'a' && (int)cur_let <= (int)'z' || (int)cur_let >= (int)'A' && (int)cur_let <= (int)'Z' 
-		|| (int)cur_let == (int)'_' || (int)cur_let == (int)'-') {
+		|| (int)cur_let == (int)'_') {
 		out += std::string(1, cur_let);
 		file.get(cur_let);
 	}
@@ -147,6 +148,10 @@ pss lexer::get_lex(int& line) {
 			out.first = built_in_funcs[s].first;
 			out.second = std::string(1,char((int)'0'+built_in_funcs[s].second));
 		}
+		else if (types.find(s) != types.end()) {
+			out.first = types[s];
+			out.second = "";
+		}
 		else {
 			out.first = "lexNONE";
 			out.second = s;
@@ -173,4 +178,8 @@ const std::map<std::string, std::string>* lexer::get_spec_words() const {
 
 const std::map<std::string, std::pair<std::string, int>>* lexer::get_built_in_funcs() const {
 	return &built_in_funcs;
+}
+
+const std::map<std::string, std::string>* lexer::get_types() const {
+	return &types;
 }

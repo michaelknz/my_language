@@ -9,6 +9,7 @@ public:
 	~Error();
 	void Expected(std::string s, int line);
 	void Unexpected(std::string s, int line);
+	void ExistName(std::string s, int line);
 };
 #endif
 

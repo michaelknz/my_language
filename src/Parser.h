@@ -20,14 +20,18 @@ public:
 	void get_start();
 	void set_func();
 	void set_spec_words();
+	void set_types();
+	void var_dif();
 private:
 	int max_exp_length;
 	std::vector<std::string> cur_exp;
 	pss cur_lex;
 	lexer* lex;
 	Error* err;
-	std::set<std::string> funcs;
-	std::map< std::string, std::string> spec_words;
+	std::map<std::string,std::pair<std::string,int>> funcs;
+	std::map<std::string, std::string> spec_words;
+	std::map<std::string, pss> vars;
+	std::set<std::string> types;
 	int line;
 	bool is_error;
 };

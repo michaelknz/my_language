@@ -1,7 +1,8 @@
 START{
 int a;
-a=5;
+a=-5;
+int b=11;
+a=a+b;
+print(5-abs(a));
 print(a);
-print(a+10);
-print(a-10);
 }

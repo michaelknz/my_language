@@ -9,6 +9,7 @@ Parser::Parser(std::string filename) {
 	set_func();
 	set_spec_words();
 	set_types();
+	set_func_map();
 }
 
 Parser::~Parser() {
@@ -28,7 +29,12 @@ void Parser::compile() {
 		expression('p');
 		if (cur_lex.first != "lexDOTCOMA") {
 			is_error = true;
-			err->Expected(";", line);
+			if (lex->get_is_next_line()) {
+				err->Expected(";", line - 1);
+			}
+			else {
+				err->Expected(";", line);
+			}
 		}
 		solve_expression();
 		cur_lex = lex->get_lex(line);
@@ -51,7 +57,7 @@ void Parser::expression(char sign) {
 		if (cur_lex.first == "lexEQUAL") {
 			cur_lex = lex->get_lex(line);
 			expression('p');
-			cur_exp.push_back("=");
+			cur_exp.push_back(std::pair<std::string,std::string>("OP","="));
 			continue;
 		}
 		if (cur_lex.first == "lexPLUS" && sign=='p' || cur_lex.first == "lexMINUS" && sign == 'm') {
@@ -62,7 +68,7 @@ void Parser::expression(char sign) {
 		}
 		cur_lex = lex->get_lex(line);
 		term('p');
-		cur_exp.push_back(q);
+		cur_exp.push_back(std::pair<std::string, std::string>("OP", q));
 	}
 }
 
@@ -81,7 +87,7 @@ void Parser::term(char sign) {
 		}
 		cur_lex = lex->get_lex(line);
 		mult('p');
-		cur_exp.push_back(q);
+		cur_exp.push_back(std::pair<std::string, std::string>("OP", q));
 	}
 }
 
@@ -95,28 +101,34 @@ void Parser::mult(char sign) {
 	}
 	if (cur_lex.first == "lexINT") {
 		if (sign == 'm') {
-			cur_exp.push_back(std::string(1, '-') + cur_lex.second);
+			cur_exp.push_back(std::pair<std::string,std::string>("INT",std::string(1, '-') + cur_lex.second));
 		}
 		else {
-			cur_exp.push_back(cur_lex.second);
+			cur_exp.push_back(std::pair<std::string, std::string>("INT",cur_lex.second));
 		}
 		cur_lex = lex->get_lex(line);
 	}
 	else if (cur_lex.first == "lexORB") {
 		cur_lex = lex->get_lex(line);
 		expression(sign);
+		if (cur_lex.first != "lexCRB") {
+			is_error = true;
+			err->Expected(")", line);
+		}
 		cur_lex = lex->get_lex(line);
 	}
 	else if (funcs.find(cur_lex.first) != funcs.end()) {
-		std::string q = cur_lex.first;
-		cur_lex = lex->get_lex(line);
-		cur_lex = lex->get_lex(line);
-		expression(sign);
-		cur_exp.push_back(q);
-		cur_lex = lex->get_lex(line);
+		func_to_exp(sign);
 	}
 	else if (vars.find(cur_lex.second) != vars.end()) {
-		cur_exp.push_back(cur_lex.second);
+		std::string a = "";
+		if (sign == 'm') {
+			a = "-" + cur_lex.second;
+		}
+		else {
+			a = cur_lex.second;
+		}
+		cur_exp.push_back(std::pair<std::string, std::string>("VAR",a));
 		cur_lex = lex->get_lex(line);
 	}
 	else {
@@ -147,9 +159,12 @@ int Parser::from_str_to_int(std::string s) {
 std::string Parser::from_int_to_string(int x) {
 	std::string out = "";
 	std::string q = "";
+	if (x == 0) {
+		out = "0";
+	}
 	if (x < 0) {
 		q += "-";
-		x = abs(x);
+		x = std::abs(x);
 	}
 	while (x > 0) {
 		out = std::string(1, (char)((int)'0' + x % 10)) + out;
@@ -176,118 +191,15 @@ void Parser::solve_expression() {
 	if (is_error) {
 		return;
 	}
-	std::string* stack = new std::string[max_exp_length];
+	std::pair<std::string,std::string>* stack = new std::pair<std::string, std::string>[max_exp_length];
 	int ptr = -1;
 	for (int i = 0; i < cur_exp.size(); ++i) {
-		if ((int)cur_exp[i][cur_exp[i].size()-1] >= (int)'0' && (int)cur_exp[i][cur_exp[i].size()-1] <= '9') {
+		if (cur_exp[i].first == "OP" || cur_exp[i].first == "FUNC") {
+			func_map[cur_exp[i].second](stack, ptr);
+		}
+		else {
 			ptr++;
 			stack[ptr] = cur_exp[i];
-		}
-		else if (vars.find(cur_exp[i]) != vars.end()) {
-			ptr++;
-			stack[ptr] = cur_exp[i];
-		}
-		else if (cur_exp[i] == "+") {
-			std::string a = "";
-			std::string b = "";
-			if (vars.find(stack[ptr - 1]) != vars.end()) {
-				a = vars[stack[ptr - 1]].second;
-			}
-			else {
-				a = stack[ptr - 1];
-			}
-			if (vars.find(stack[ptr]) != vars.end()) {
-				b = vars[stack[ptr]].second;
-			}
-			else {
-				b = stack[ptr];
-			}
-			stack[ptr - 1] = from_int_to_string(from_str_to_int(b) + from_str_to_int(a));
-			ptr--;
-		}
-		else if (cur_exp[i] == "-") {
-			std::string a = "";
-			std::string b = "";
-			if (vars.find(stack[ptr - 1]) != vars.end()) {
-				a = vars[stack[ptr - 1]].second;
-			}
-			else {
-				a = stack[ptr - 1];
-			}
-			if (vars.find(stack[ptr]) != vars.end()) {
-				b = vars[stack[ptr]].second;
-			}
-			else {
-				b = stack[ptr];
-			}
-			stack[ptr - 1] = from_int_to_string(from_str_to_int(a) - from_str_to_int(b));
-			ptr--;
-		}
-		else if (cur_exp[i] == "*") {
-			std::string a = "";
-			std::string b = "";
-			if (vars.find(stack[ptr - 1]) != vars.end()) {
-				a = vars[stack[ptr - 1]].second;
-			}
-			else {
-				a = stack[ptr - 1];
-			}
-			if (vars.find(stack[ptr]) != vars.end()) {
-				b = vars[stack[ptr]].second;
-			}
-			else {
-				b = stack[ptr];
-			}
-			stack[ptr - 1] = from_int_to_string(from_str_to_int(a) * from_str_to_int(b));
-			ptr--;
-		}
-		else if (cur_exp[i] == "/") {
-			std::string a = "";
-			std::string b = "";
-			if (vars.find(stack[ptr - 1]) != vars.end()) {
-				a = vars[stack[ptr - 1]].second;
-			}
-			else {
-				a = stack[ptr - 1];
-			}
-			if (vars.find(stack[ptr]) != vars.end()) {
-				b = vars[stack[ptr]].second;
-			}
-			else {
-				b = stack[ptr];
-			}
-			stack[ptr - 1] = from_int_to_string(from_str_to_int(a) / from_str_to_int(b));
-			ptr--;
-		}
-		else if(cur_exp[i]=="="){
-			if (vars.find(stack[ptr - 1]) == vars.end()) {
-				is_error = true;
-				err->Unexpected(stack[ptr - 1], line);
-			}
-			else {
-				std::string b = "";
-				if (vars.find(stack[ptr]) != vars.end()) {
-					b = vars[stack[ptr]].second;
-				}
-				else {
-					b = stack[ptr];
-				}
-				vars[stack[ptr - 1]].second = b;
-				ptr -= 2;
-			}
-		}
-		else if (cur_exp[i] == "lexPRINT") {
-			if ((int)stack[ptr][stack[ptr].size()-1] >= (int)'0' && (int)stack[ptr][stack[ptr].size()-1] <= (int)'9') {
-				std::cout << stack[ptr] << std::endl;
-			}
-			else if (vars.find(stack[ptr]) != vars.end()) {
-				std::cout << vars[stack[ptr]].second << std::endl;
-			}
-			else {
-				is_error = true;
-				err->Unexpected(stack[ptr], line);
-			}
-			ptr--;
 		}
 	}
 	cur_exp.clear();
@@ -331,4 +243,183 @@ void Parser::set_types() {
 	for (auto i = (*tmp).begin(); i != (*tmp).end(); ++i) {
 		types.insert((*i).second);
 	}
+}
+
+void Parser::set_func_map() {
+	func_map["*"] = std::bind(&Parser::multiply, this, std::placeholders::_1, std::placeholders::_2);
+	func_map["+"] = std::bind(&Parser::add, this, std::placeholders::_1, std::placeholders::_2);
+	func_map["-"] = std::bind(&Parser::subtract, this, std::placeholders::_1, std::placeholders::_2);
+	func_map["/"] = std::bind(&Parser::divide, this, std::placeholders::_1, std::placeholders::_2);
+	func_map["="] = std::bind(&Parser::equate, this, std::placeholders::_1, std::placeholders::_2);
+	func_map["lexPRINT"] = std::bind(&Parser::print, this, std::placeholders::_1, std::placeholders::_2);
+	func_map["lexABS"] = std::bind(&Parser::abs, this, std::placeholders::_1, std::placeholders::_2);
+}
+
+std::string Parser::val_from_var(std::string var) {
+	std::string out = "";
+	if (var[0] == '-') {
+		var = var.substr(1, var.size() - 1);
+		out = "-" + vars[var].second;
+	}
+	else {
+		out = vars[var].second;
+	}
+	return out;
+}
+
+void Parser::func_to_exp(char sign) {
+	std::string q = cur_lex.first;
+	cur_lex = lex->get_lex(line);
+	if (cur_lex.first != "lexORB") {
+		is_error = true;
+		err->Expected("(", line);
+	}
+	cur_lex = lex->get_lex(line);
+	for (int i = 0; i < funcs[q].second; ++i) {
+		expression('p');
+		if (cur_lex.first != "lexCOMMA" && i != funcs[q].second-1) {
+			is_error = true;
+			err->Expected(",", line);
+		}
+		else if (cur_lex.first == "lexCOMMA" && i == funcs[q].second - 1) {
+			is_error = true;
+			err->Unexpected(",", line);
+		}
+		if (i == funcs[q].second - 1 && cur_lex.first!="lexCRB") {
+			is_error = true;
+			err->Expected(")", line);
+		}
+		cur_lex = lex->get_lex(line);
+	}
+	cur_exp.push_back(std::pair<std::string, std::string>("FUNC", q));
+	if (sign == 'm') {
+		cur_exp.push_back(pss("INT", "-1"));
+		cur_exp.push_back(pss("OP", "*"));
+	}
+}
+
+void Parser::add(pss* stack, int& ptr) {
+	std::string a = "";
+	std::string b = "";
+	if (stack[ptr - 1].first == "VAR") {
+		a = val_from_var(stack[ptr - 1].second);
+	}
+	else {
+		a = stack[ptr - 1].second;
+	}
+	if (stack[ptr].first == "VAR") {
+		b = val_from_var(stack[ptr].second);
+	}
+	else {
+		b = stack[ptr].second;
+	}
+	pss out;
+	out.first = "INT";
+	out.second = from_int_to_string(from_str_to_int(a) + from_str_to_int(b));
+	stack[ptr - 1] = out;
+	ptr--;
+}
+
+void Parser::subtract(pss* stack, int& ptr) {
+	std::string a = "";
+	std::string b = "";
+	if (stack[ptr - 1].first == "VAR") {
+		a = val_from_var(stack[ptr - 1].second);
+	}
+	else {
+		a = stack[ptr - 1].second;
+	}
+	if (stack[ptr].first == "VAR") {
+		b = val_from_var(stack[ptr].second);
+	}
+	else {
+		b = stack[ptr].second;
+	}
+	pss out;
+	out.first = "INT";
+	out.second = from_int_to_string(from_str_to_int(a) - from_str_to_int(b));
+	stack[ptr - 1] = out;
+	ptr--;
+}
+
+void Parser::multiply(pss* stack, int& ptr) {
+	std::string a = "";
+	std::string b = "";
+	if (stack[ptr - 1].first == "VAR") {
+		a = val_from_var(stack[ptr - 1].second);
+	}
+	else {
+		a = stack[ptr - 1].second;
+	}
+	if (stack[ptr].first == "VAR") {
+		b = val_from_var(stack[ptr].second);
+	}
+	else {
+		b = stack[ptr].second;
+	}
+	pss out;
+	out.first = "INT";
+	out.second = from_int_to_string(from_str_to_int(a) * from_str_to_int(b));
+	stack[ptr - 1] = out;
+	ptr--;
+}
+
+void Parser::divide(pss* stack, int& ptr) {
+	std::string a = "";
+	std::string b = "";
+	if (stack[ptr - 1].first == "VAR") {
+		a = val_from_var(stack[ptr - 1].second);
+	}
+	else {
+		a = stack[ptr - 1].second;
+	}
+	if (stack[ptr].first == "VAR") {
+		b = val_from_var(stack[ptr].second);
+	}
+	else {
+		b = stack[ptr].second;
+	}
+	pss out;
+	out.first = "INT";
+	out.second = from_int_to_string(from_str_to_int(a) / from_str_to_int(b));
+	stack[ptr - 1] = out;
+	ptr--;
+}
+
+void Parser::print(pss* stack, int& ptr) {
+	std::string a = "";
+	if (stack[ptr].first=="VAR") {
+		a = val_from_var(stack[ptr].second);
+	}
+	else {
+		a = stack[ptr].second;
+	}
+	std::cout << a << std::endl;
+	ptr--;
+}
+
+void Parser::equate(pss* stack, int& ptr) {
+	std::string a = "";
+	if (stack[ptr].first == "VAR") {
+		a = val_from_var(stack[ptr].second);
+	}
+	else {
+		a = stack[ptr].second;
+	}
+	vars[stack[ptr - 1].second].second = a;
+	ptr -= 2;
+}
+
+void Parser::abs(pss* stack, int& ptr) {
+	std::string a = "";
+	if (stack[ptr].first == "VAR") {
+		a = val_from_var(stack[ptr].second);
+		stack[ptr].first = "INT";
+		stack[ptr].second = from_int_to_string(std::abs(from_str_to_int(a)));
+	}
+	else {
+		a = stack[ptr].second;
+		stack[ptr].second = from_int_to_string(std::abs(from_str_to_int(a)));
+	}
+
 }

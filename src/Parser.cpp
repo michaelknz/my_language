@@ -23,7 +23,7 @@ void Parser::compile() {
 			return;
 		}
 		if (cur_lex.first == "lexCFB") {
-			cur_lex = lex->get_lex(line);
+			get_lex(line);
 			continue;
 		}
 		expression('p');
@@ -37,13 +37,20 @@ void Parser::compile() {
 			}
 		}
 		solve_expression();
-		cur_lex = lex->get_lex(line);
+		get_lex(line);
 	}
 }
 
 void Parser::main_prog() {
 	get_start();
 	compile();
+}
+
+void Parser::get_lex(int& line) {
+	cur_lex = lex->get_lex(line);
+	if (cur_lex.first == "lexQUOTES") {
+		cur_lex = lex->get_string(is_error, err, line);
+	}
 }
 
 void Parser::expression(char sign) {
@@ -55,7 +62,7 @@ void Parser::expression(char sign) {
 	while (cur_lex.first == "lexPLUS" || cur_lex.first == "lexMINUS" || cur_lex.first=="lexEQUAL") {
 		std::string q = "";
 		if (cur_lex.first == "lexEQUAL") {
-			cur_lex = lex->get_lex(line);
+			get_lex(line);
 			expression('p');
 			cur_exp.push_back(std::pair<std::string,std::string>("OP","="));
 			continue;
@@ -66,7 +73,7 @@ void Parser::expression(char sign) {
 		else {
 			q = "-";
 		}
-		cur_lex = lex->get_lex(line);
+		get_lex(line);
 		term('p');
 		cur_exp.push_back(std::pair<std::string, std::string>("OP", q));
 	}
@@ -85,7 +92,7 @@ void Parser::term(char sign) {
 		else {
 			q = "/";
 		}
-		cur_lex = lex->get_lex(line);
+		get_lex(line);
 		mult('p');
 		cur_exp.push_back(std::pair<std::string, std::string>("OP", q));
 	}
@@ -97,16 +104,20 @@ void Parser::mult(char sign) {
 	}
 	if (cur_lex.first == "lexMINUS") {
 		sign = 'm';
-		cur_lex = lex->get_lex(line);
+		get_lex(line);
 	}
-	if (cur_lex.first == "lexINT") {
-		if (sign == 'm') {
+	if (types.find(cur_lex.first+"T")!=types.end()) {
+		if (sign == 'm' && cur_lex.first == "lexSTRING") {
+			is_error = true;
+			err->Unexpected("-", line);
+		}
+		else if (sign == 'm') {
 			cur_exp.push_back(std::pair<std::string,std::string>("INT",std::string(1, '-') + cur_lex.second));
 		}
 		else {
 			cur_exp.push_back(std::pair<std::string, std::string>("INT",cur_lex.second));
 		}
-		cur_lex = lex->get_lex(line);
+		get_lex(line);
 	}
 	else if (cur_lex.first == "lexORB") {
 		cur_lex = lex->get_lex(line);
@@ -115,21 +126,25 @@ void Parser::mult(char sign) {
 			is_error = true;
 			err->Expected(")", line);
 		}
-		cur_lex = lex->get_lex(line);
+		get_lex(line);
 	}
 	else if (funcs.find(cur_lex.first) != funcs.end()) {
 		func_to_exp(sign);
 	}
 	else if (vars.find(cur_lex.second) != vars.end()) {
 		std::string a = "";
-		if (sign == 'm') {
+		if (sign == 'm' && vars[cur_lex.second].first == "lexSTRING") {
+			is_error = true;
+			err->Unexpected("-", line);
+		}
+		else if (sign == 'm') {
 			a = "-" + cur_lex.second;
 		}
 		else {
 			a = cur_lex.second;
 		}
 		cur_exp.push_back(std::pair<std::string, std::string>("VAR",a));
-		cur_lex = lex->get_lex(line);
+		get_lex(line);
 	}
 	else {
 		is_error = true;
@@ -174,17 +189,17 @@ std::string Parser::from_int_to_string(int x) {
 }
 
 void Parser::get_start() {
-	cur_lex = lex->get_lex(line);
+	get_lex(line);
 	if (cur_lex.first != "lexSTART") {
 		err->Expected("START", line);
 		is_error = true;
 	}
-	cur_lex = lex->get_lex(line);
+	get_lex(line);
 	if (cur_lex.first != "lexOFB") {
 		err->Expected("{", line);
 		is_error = true;
 	}
-	cur_lex = lex->get_lex(line);
+	get_lex(line);
 }
 
 void Parser::solve_expression() {
@@ -225,7 +240,7 @@ void Parser::var_dif() {
 		return;
 	}
 	std::string s = cur_lex.first.substr(0, cur_lex.first.size() - 1);
-	cur_lex = lex->get_lex(line);
+	get_lex(line);
 	if (cur_lex.first != "lexNONE") {
 		is_error = true;
 		if (funcs.find(cur_lex.first) != funcs.end()) {
@@ -269,12 +284,12 @@ std::string Parser::val_from_var(std::string var) {
 
 void Parser::func_to_exp(char sign) {
 	std::string q = cur_lex.first;
-	cur_lex = lex->get_lex(line);
+	get_lex(line);
 	if (cur_lex.first != "lexORB") {
 		is_error = true;
 		err->Expected("(", line);
 	}
-	cur_lex = lex->get_lex(line);
+	get_lex(line);
 	for (int i = 0; i < funcs[q].second; ++i) {
 		expression('p');
 		if (cur_lex.first != "lexCOMMA" && i != funcs[q].second-1) {
@@ -289,7 +304,7 @@ void Parser::func_to_exp(char sign) {
 			is_error = true;
 			err->Expected(")", line);
 		}
-		cur_lex = lex->get_lex(line);
+		get_lex(line);
 	}
 	cur_exp.push_back(std::pair<std::string, std::string>("FUNC", q));
 	if (sign == 'm') {

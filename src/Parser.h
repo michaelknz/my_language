@@ -1,7 +1,6 @@
 #ifndef PARSER_H
 #define PARSER_H
 #include "lexer.h"
-#include "Error.h"
 #include <vector>
 #include <set>
 #include <functional>
@@ -10,6 +9,7 @@ class Parser
 public:
 	Parser(std::string filename);
 	~Parser();
+	void get_lex(int& line);
 	void compile();
 	void main_prog();
 	void expression(char sign);

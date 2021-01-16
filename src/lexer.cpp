@@ -7,7 +7,7 @@ lexer::lexer(std::string file_name) {
 	is_next_line = false;
 	spec_words = { {"START","lexSTART"} };
 	built_in_funcs = { {"print",std::pair<std::string,int>("lexPRINT",1)}, {"abs",std::pair<std::string,int>("lexABS",1)} };
-	types = { {"int","lexINTT"} };
+	types = { {"int","lexINTT"}, {"string", "lexSTRINGT"} };
 }
 
 lexer::~lexer() {
@@ -162,6 +162,11 @@ pss lexer::get_lex(int& line) {
 		file.get(cur_let);
 		pos++;
 		break;
+	case '"':
+		out.first = "lexQUOTES";
+		out.second = "";
+		pos++;
+		break;
 	default:
 		break;
 	}
@@ -194,6 +199,29 @@ pss lexer::get_lex(int& line) {
 		out.second = s;
 	}
 
+	return out;
+}
+
+pss lexer::get_string(bool& is_error, Error* err, int& line) {
+	pss out;
+	file.get(cur_let);
+	out.first = "lexSTRING";
+	while (cur_let!='"') {
+		if (cur_let == '\n') {
+			is_error = true;
+			err->Expected("\"", line);
+			pos = 0;
+			line++;
+			is_next_line = true;
+			file.get(cur_let);
+			return out;
+		}
+		out.second += std::string(1,cur_let);
+		file.get(cur_let);
+	}
+	if (cur_let == '"') {
+		file.get(cur_let);
+	}
 	return out;
 }
 

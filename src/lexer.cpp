@@ -1,4 +1,5 @@
 #include "lexer.h"
+#include <ostream>
 
 lexer::lexer(std::string file_name) {
 	file.open(file_name.c_str());
@@ -18,7 +19,7 @@ std::string lexer::number() {
 	std::string out(1,cur_let);
 	file.get(cur_let);
 	pos++;
-	while ((int)cur_let >= '0' && (int)cur_let <= '9') {
+	while ((int)cur_let >= '0' && (int)cur_let <= '9' && !file.eof()) {
 		out += std::string(1, cur_let);
 		file.get(cur_let);
 		pos++;
@@ -30,8 +31,8 @@ std::string lexer::name() {
 	std::string out(1, cur_let);
 	file.get(cur_let);
 	pos++;
-	while ((int)cur_let >= (int)'a' && (int)cur_let <= (int)'z' || (int)cur_let >= (int)'A' && (int)cur_let <= (int)'Z' 
-		|| (int)cur_let == (int)'_') {
+	while (((int)cur_let >= (int)'a' && (int)cur_let <= (int)'z' || (int)cur_let >= (int)'A' && (int)cur_let <= (int)'Z' 
+		|| (int)cur_let == (int)'_') && !file.eof()) {
 		out += std::string(1, cur_let);
 		file.get(cur_let);
 		pos++;
@@ -188,6 +189,10 @@ pss lexer::get_lex(int& line) {
 			out.first = types[s];
 			out.second = "";
 		}
+    else if(s=="EOF"){
+      out.first = "lexEOF";
+      out.second = "";
+    }
 		else {
 			out.first = "lexNONE";
 			out.second = s;

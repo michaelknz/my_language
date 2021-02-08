@@ -8,3 +8,5 @@
 **.vcxproj
 **.vcxproj.filters
 **.vcxproj.user
+**.out
+**.gch

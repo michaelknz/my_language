@@ -42,16 +42,14 @@ std::string lexer::name() {
 
 pss lexer::get_lex(int& line) {
 	is_next_line = false;
-	if ((int)cur_let == (int)' ' || (int)cur_let == (int)'\n' || (int)cur_let == (int)'\t') {
-		while ((int)cur_let == (int)' ' || (int)cur_let == (int)'\n' || (int)cur_let == (int)'\t') {
-			if (cur_let == '\n') {
-				line++;
-				pos = 0;
-				is_next_line = true;
-			}
-			file.get(cur_let);
-			pos++;
+	while ((int)cur_let == (int)' ' || (int)cur_let == (int)'\n' || (int)cur_let == (int)'\t') {
+		if (cur_let == '\n') {
+			line++;
+			pos = 0;
+			is_next_line = true;
 		}
+		file.get(cur_let);
+		pos++;
 	}
 	pss out;
 	out.first = "";
@@ -189,10 +187,10 @@ pss lexer::get_lex(int& line) {
 			out.first = types[s];
 			out.second = "";
 		}
-    else if(s=="EOF"){
-      out.first = "lexEOF";
-      out.second = "";
-    }
+		else if(s=="EOF"){
+			out.first = "lexEOF";
+			out.second = "";
+		}
 		else {
 			out.first = "lexNONE";
 			out.second = s;

@@ -5,7 +5,7 @@
 #include <string>
 #include <fstream>
 #include <map>
-typedef std::pair<std::string, std::string> pss;
+#include "Defines.h"
 class lexer
 {
 public:

@@ -1,0 +1,10 @@
+START{
+int a;
+a=-5;
+int b=11;
+a=a+b;
+string c="hello";
+print(5-abs(a));
+print(a);
+print(c);
+}

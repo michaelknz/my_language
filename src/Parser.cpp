@@ -2,9 +2,6 @@
 
 Parser::Parser(std::string filename) {
 	lex = new lexer(filename);
-	err = new Error;
-	is_error = false;
-	line = 1;
 	set_func();
 	set_spec_words();
 	set_types();
@@ -15,15 +12,15 @@ Parser::~Parser() {
 	delete err;
 }
 
-void Parser::get_lex(int& line) {
-	cur_lex = lex->get_lex(line);
+void Parser::get_lex() {
+	cur_lex = lex->get_lex();
 	if (cur_lex.first == "lexQUOTES") {
-		cur_lex = lex->get_string(is_error, err, line);
+		cur_lex = lex->get_string();
 	}
 }
 
 void Parser::expression(char sign) {
-	if (is_error) {
+	if (err->Get_Is_Error()) {
 		return;
 	}
 	var_dif();
@@ -31,7 +28,7 @@ void Parser::expression(char sign) {
 	while (cur_lex.first == "lexPLUS" || cur_lex.first == "lexMINUS" || cur_lex.first=="lexEQUAL") {
 		std::string q = "";
 		if (cur_lex.first == "lexEQUAL") {
-			get_lex(line);
+			get_lex();
 			expression('p');
 			cur_exp.push_back(std::pair<std::string,std::string>("OP","="));
 			continue;
@@ -42,14 +39,14 @@ void Parser::expression(char sign) {
 		else {
 			q = "-";
 		}
-		get_lex(line);
+		get_lex();
 		term('p');
 		cur_exp.push_back(std::pair<std::string, std::string>("OP", q));
 	}
 }
 
 void Parser::term(char sign) {
-	if (is_error) {
+	if (err->Get_Is_Error()) {
 		return;
 	}
 	mult(sign);
@@ -61,24 +58,23 @@ void Parser::term(char sign) {
 		else {
 			q = "/";
 		}
-		get_lex(line);
+		get_lex();
 		mult('p');
 		cur_exp.push_back(std::pair<std::string, std::string>("OP", q));
 	}
 }
 
 void Parser::mult(char sign) {
-	if (is_error) {
+	if (err->Get_Is_Error()) {
 		return;
 	}
 	if (cur_lex.first == "lexMINUS") {
 		sign = 'm';
-		get_lex(line);
+		get_lex();
 	}
 	if (types.find(cur_lex.first+"T")!=types.end()) {
 		if (sign == 'm' && cur_lex.first == "lexSTRING") {
-			is_error = true;
-			err->Unexpected("-", line);
+			err->Unexpected("-");
 		}
 		else if (sign == 'm') {
 			cur_exp.push_back(std::pair<std::string,std::string>("INT",std::string(1, '-') + cur_lex.second));
@@ -86,16 +82,15 @@ void Parser::mult(char sign) {
 		else {
 			cur_exp.push_back(std::pair<std::string, std::string>("INT",cur_lex.second));
 		}
-		get_lex(line);
+		get_lex();
 	}
 	else if (cur_lex.first == "lexORB") {
-		cur_lex = lex->get_lex(line);
+		cur_lex = lex->get_lex();
 		expression(sign);
 		if (cur_lex.first != "lexCRB") {
-			is_error = true;
-			err->Expected(")", line);
+			err->Expected(")");
 		}
-		get_lex(line);
+		get_lex();
 	}
 	else if (funcs.find(cur_lex.first) != funcs.end()) {
 		func_to_exp(sign);
@@ -103,8 +98,7 @@ void Parser::mult(char sign) {
 	else if (vars.find(cur_lex.second) != vars.end()) {
 		std::string a = "";
 		if (sign == 'm' && vars[cur_lex.second].first == "lexSTRING") {
-			is_error = true;
-			err->Unexpected("-", line);
+			err->Unexpected("-");
 		}
 		else if (sign == 'm') {
 			a = "-" + cur_lex.second;
@@ -113,31 +107,29 @@ void Parser::mult(char sign) {
 			a = cur_lex.second;
 		}
 		cur_exp.push_back(std::pair<std::string, std::string>("VAR",a));
-		get_lex(line);
+		get_lex();
 	}
 	else {
-		is_error = true;
 		if (cur_lex.first == "lexNONE") {
-			err->Unexpected(cur_lex.second, line);
+			err->Unexpected(cur_lex.second);
 		}
 		else if(spec_words.find(cur_lex.first)!=spec_words.end()) {
-			err->Unexpected(spec_words[cur_lex.first], line);
+			err->Unexpected(spec_words[cur_lex.first]);
 		}
 	}
 }
 
-void Parser::get_start() {
-	get_lex(line);
+void Parser::get_start(Error* err) {
+	Set_err(err);
+	get_lex();
 	if (cur_lex.first != "lexSTART") {
-		err->Expected("START", line);
-		is_error = true;
+		err->Expected("START");
 	}
-	get_lex(line);
+	get_lex();
 	if (cur_lex.first != "lexOFB") {
-		err->Expected("{", line);
-		is_error = true;
+		err->Expected("{");
 	}
-	get_lex(line);
+	get_lex();
 }
 
 void Parser::set_func() {
@@ -159,14 +151,13 @@ void Parser::var_dif() {
 		return;
 	}
 	std::string s = cur_lex.first.substr(0, cur_lex.first.size() - 1);
-	get_lex(line);
+	get_lex();
 	if (cur_lex.first != "lexNONE") {
-		is_error = true;
 		if (funcs.find(cur_lex.first) != funcs.end()) {
-			err->Unexpected(funcs[cur_lex.first].first, line);
+			err->Unexpected(funcs[cur_lex.first].first);
 		}
 		else if (spec_words.find(cur_lex.first) != spec_words.end()) {
-			err->Unexpected(spec_words[cur_lex.first], line);
+			err->Unexpected(spec_words[cur_lex.first]);
 		}
 	}
 	vars.insert(std::pair<std::string, pss>(cur_lex.second, pss(s, "")));
@@ -181,27 +172,26 @@ void Parser::set_types() {
 
 void Parser::func_to_exp(char sign) {
 	std::string q = cur_lex.first;
-	get_lex(line);
+	get_lex();
 	if (cur_lex.first != "lexORB") {
-		is_error = true;
-		err->Expected("(", line);
+		err->Expected("(");
 	}
-	get_lex(line);
+	get_lex();
 	for (int i = 0; i < funcs[q].second; ++i) {
 		expression('p');
+		if (err->Get_Is_Error()) {
+			return;
+		}
 		if (cur_lex.first != "lexCOMMA" && i != funcs[q].second-1) {
-			is_error = true;
-			err->Expected(",", line);
+			err->Expected(",");
 		}
 		else if (cur_lex.first == "lexCOMMA" && i == funcs[q].second - 1) {
-			is_error = true;
-			err->Unexpected(",", line);
+			err->Unexpected(",");
 		}
 		if (i == funcs[q].second - 1 && cur_lex.first!="lexCRB") {
-			is_error = true;
-			err->Expected(")", line);
+			err->Expected(")");
 		}
-		get_lex(line);
+		get_lex();
 	}
 	cur_exp.push_back(std::pair<std::string, std::string>("FUNC", q));
 	if (sign == 'm') {
@@ -214,20 +204,20 @@ void Parser::func_to_exp(char sign) {
 int Parser::compile_exp() {
 	cur_exp.clear();
 	if (cur_lex.first == "lexCFB") {
-		get_lex(line);
+		get_lex();
 		return 2;
 	}
 	expression('p');
-	if (cur_lex.first != "lexDOTCOMA") {
-		is_error = true;
-		if (lex->get_is_next_line()) {
-			err->Expected(";", line - 1);
-		}
-		else {
-			err->Expected(";", line);
-		}
+	if (err->Get_Is_Error()) {
+		return -1;
 	}
-	get_lex(line);
+	if (cur_lex.first != "lexDOTCOMA") {
+		err->Expected(";");
+	}
+	if (err->Get_Is_Error()) {
+		return -1;
+	}
+	get_lex();
 	return 0;
 }
 
@@ -237,4 +227,9 @@ std::vector<std::pair<std::string, std::string>> Parser::Get_exp() {
 
 std::map<std::string, pss>* Parser::Get_vars() {
 	return &vars;
+}
+
+void Parser::Set_err(Error* err) {
+	this->err = err;
+	lex->Set_err(err);
 }

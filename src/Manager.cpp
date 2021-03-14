@@ -1,6 +1,7 @@
 #include "Manager.h"
 
 Manager::Manager(std::string filename) {
+	error = new Error;
 	preproc = new Preproc;
 	parser = new Parser(filename);
 	solver = new Solver;
@@ -15,7 +16,7 @@ Manager::~Manager() {
 
 void Manager::compile() {
 	preproc->Start(filename);
-	parser->get_start();
+	parser->get_start(error);
 	int tmp = 0;
 	tmp = parser->compile_exp();
 	while (tmp == 0) {

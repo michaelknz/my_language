@@ -4,6 +4,8 @@
 #include "Preproc.h"
 #include "Parser.h"
 #include "Solver.h"
+#include "Error.h"
+
 class Manager
 {
 public:
@@ -14,6 +16,7 @@ private:
 	Preproc* preproc;
 	Parser* parser;
 	Solver* solver;
+	Error* error;
 	std::ifstream file;
 	std::string filename;
 };
